@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Number Picker</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .wallet-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px dashed #ddd;
+        }
+        
+        .wallet-connected {
+            background: #e8f5e8;
+            border-color: #28a745;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            min-width: 160px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(45deg, #ffc107, #fd7e14);
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .error-box {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #d32f2f;
+        }
+        
+        .success-box {
+            background: #e8f5e8;
+            border: 1px solid #28a745;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #155724;
+        }
+        
+        .result-number {
+            font-size: 4em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .contract-info {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎲 Random Picker</h1>
+        <p class="subtitle">Pay 0.004 ETH to pick a random number</p>
+        
+        <div id="walletSection" class="wallet-section">
+            <button id="connectBtn" class="btn" onclick="connectWallet()">Connect Wallet</button>
+            <div id="walletInfo" style="display: none;">
+                <div><strong>Wallet:</strong> <span id="walletAddress"></span></div>
+                <div><strong>Balance:</strong> <span id="walletBalance"></span> ETH</div>
+                <div><strong>Network:</strong> Base Sepolia</div>
+            </div>
+        </div>
+        
+        <div id="contractStats" class="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-label">Total Items</div>
+                <div class="stat-value" id="totalItems">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Picks</div>
+                <div class="stat-value" id="totalPicks">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Last Number</div>
+                <div class="stat-value" id="lastNumber">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Pick Cost</div>
+                <div class="stat-value">0.004 ETH</div>
+            </div>
+        </div>
+        
+        <button id="pickBtn" class="btn btn-warning" onclick="pickNumber()" disabled>
+            Pick Random Number (0.004 ETH)
+        </button>
+        
+        <div id="resultSection" style="display: none;">
+            <div class="success-box">
+                <h3>Your Lucky Number:</h3>
+                <div class="result-number" id="resultNumber">-</div>
+                <div id="transactionInfo"></div>
+            </div>
+        </div>
+        
+        <div id="errorSection" style="display: none;">
+            <div class="error-box" id="errorMessage"></div>
+        </div>
+        
+        <div class="contract-info">
+            <div><strong>Contract:</strong> <span id="contractAddress">Loading...</span></div>
+            <div><strong>Network:</strong> Base Sepolia (Chain ID: 84532)</div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let web3;
+        let userAccount;
+        let contract;
+        
+        // Your contract details - UPDATE THESE
+        const CONTRACT_ADDRESS = "0x4C27DCA4918f6D59B9ffe0200Bab64cA4e6e2853"; // Replace with your deployed contract address
+        const PICK_COST = "0.004"; // 0.004 ETH
+        
+        // Base Sepolia network config
+        const BASE_SEPOLIA_CONFIG = {
+            chainId: '0x14A34', // 84532 in hex
+            chainName: 'Base Sepolia',
+            nativeCurrency: {
+                name: 'ETH',
+                symbol: 'ETH',
+                decimals: 18
+            },
+            rpcUrls: ['https://sepolia.base.org'],
+            blockExplorerUrls: ['https://sepolia.basescan.org']
+        };
+        
+        // Contract ABI - matches your PaidRandomPicker contract
+        const CONTRACT_ABI = [
+            {
+                "inputs": [],
+                "name": "pickRandomNumber",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "payable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "totalItems",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "pickCount",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "lastPickedNumber",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "getPickCost",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "pure",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "internalType": "address", "name": "user", "type": "address"},
+                    {"indexed": false, "internalType": "uint256", "name": "pickedNumber", "type": "uint256"},
+                    {"indexed": false, "internalType": "uint256", "name": "totalItems", "type": "uint256"},
+                    {"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"},
+                    {"indexed": false, "internalType": "uint256", "name": "amountPaid", "type": "uint256"}
+                ],
+                "name": "NumberPicked",
+                "type": "event"
+            }
+        ];
+        
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            document.getElementById('contractAddress').textContent = CONTRACT_ADDRESS;
+            
+            // Debug wallet detection
+            setTimeout(() => {
+                console.log('=== WALLET DETECTION DEBUG ===');
+                console.log('window.ethereum:', window.ethereum);
+                console.log('window.web3:', window.web3);
+                console.log('window.BinanceChain:', window.BinanceChain);
+                console.log('All window properties with "eth":', Object.keys(window).filter(k => k.toLowerCase().includes('eth')));
+                
+                if (window.ethereum) {
+                    console.log('Ethereum detected!');
+                    console.log('isMetaMask:', window.ethereum.isMetaMask);
+                    console.log('isRainbow:', window.ethereum.isRainbow);
+                    console.log('providers:', window.ethereum.providers);
+                }
+            }, 2000); // Wait 2 seconds for wallets to fully load
+        });
+        
+        async function connectWallet() {
+            const btn = document.getElementById('connectBtn');
+            const walletSection = document.getElementById('walletSection');
+            const errorSection = document.getElementById('errorSection');
+            
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading"></span>Detecting Wallet...';
+                errorSection.style.display = 'none';
+                
+                // Enhanced wallet detection
+                console.log('Window ethereum:', typeof window.ethereum);
+                console.log('Window ethereum object:', window.ethereum);
+                
+                if (typeof window.ethereum === 'undefined') {
+                    // Check for specific wallets
+                    if (typeof window.web3 !== 'undefined') {
+                        throw new Error('Old Web3 detected. Please update to a modern wallet like MetaMask or Rainbow.');
+                    } else {
+                        throw new Error(`No Web3 wallet detected. Please install one of these wallets:
+                        
+• MetaMask: https://metamask.io
+• Rainbow: https://rainbow.me  
+• Coinbase Wallet: https://wallet.coinbase.com
+
+Then refresh this page.`);
+                    }
+                }
+                
+                btn.innerHTML = '<span class="loading"></span>Connecting...';
+                
+                // Initialize Web3
+                web3 = new Web3(window.ethereum);
+                
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                const accounts = await web3.eth.getAccounts();
+                userAccount = accounts[0];
+                
+                // Check if we're on Base Sepolia
+                const chainId = await web3.eth.getChainId();
+                if (Number(chainId) !== 84532) {
+                    await switchToBaseSepolia();
+                }
+                
+                // Get wallet balance
+                const balance = await web3.eth.getBalance(userAccount);
+                const balanceETH = web3.utils.fromWei(balance, 'ether');
+                
+                // Initialize contract
+                contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                
+                // Update UI
+                document.getElementById('walletAddress').textContent = 
+                    userAccount.substring(0, 6) + '...' + userAccount.substring(38);
+                document.getElementById('walletBalance').textContent = 
+                    parseFloat(balanceETH).toFixed(4);
+                
+                document.getElementById('walletInfo').style.display = 'block';
+                walletSection.classList.add('wallet-connected');
+                
+                btn.innerHTML = 'Wallet Connected ✓';
+                btn.classList.add('btn-success');
+                
+                // Load contract stats
+                await loadContractStats();
+                
+                // Enable pick button if balance is sufficient
+                if (parseFloat(balanceETH) >= parseFloat(PICK_COST)) {
+                    document.getElementById('pickBtn').disabled = false;
+                } else {
+                    showError(`Insufficient balance. You need at least ${PICK_COST} ETH to pick a number.`);
+                }
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                showError(error.message);
+                btn.innerHTML = 'Connect Wallet';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        
+        async function switchToBaseSepolia() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_SEPOLIA_CONFIG.chainId }],
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [BASE_SEPOLIA_CONFIG]
+                    });
+                } else {
+                    throw switchError;
+                }
+            }
+        }
+        
+        async function loadContractStats() {
+            try {
+                const totalItems = await contract.methods.totalItems().call();
+                const totalPicks = await contract.methods.pickCount().call();
+                const lastNumber = await contract.methods.lastPickedNumber().call();
+                
+                document.getElementById('totalItems').textContent = totalItems;
+                document.getElementById('totalPicks').textContent = totalPicks;
+                document.getElementById('lastNumber').textContent = lastNumber || 'None yet';
+                document.getElementById('contractStats').style.display = 'grid';
+                
+            } catch (error) {
+                console.error('Error loading contract stats:', error);
+            }
+        }
+        
+        async function pickNumber() {
+            const btn = document.getElementById('pickBtn');
+            const resultSection = document.getElementById('resultSection');
+            const errorSection = document.getElementById('errorSection');
+            
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading"></span>Picking Number...';
+                resultSection.style.display = 'none';
+                errorSection.style.display = 'none';
+                
+                // Estimate gas
+                const gasEstimate = await contract.methods.pickRandomNumber().estimateGas({
+                    from: userAccount,
+                    value: web3.utils.toWei(PICK_COST, 'ether')
+                });
+                
+                console.log('Gas estimate:', gasEstimate);
+                
+                // Send transaction
+                const tx = await contract.methods.pickRandomNumber().send({
+                    from: userAccount,
+                    value: web3.utils.toWei(PICK_COST, 'ether'),
+                    gas: Math.floor(gasEstimate * 1.2) // 20% buffer
+                });
+                
+                console.log('Transaction successful:', tx);
+                
+                // Get the picked number from transaction events
+                let pickedNumber = null;
+                if (tx.events && tx.events.NumberPicked) {
+                    pickedNumber = tx.events.NumberPicked.returnValues.pickedNumber;
+                } else {
+                    // Fallback: get last picked number from contract
+                    pickedNumber = await contract.methods.lastPickedNumber().call();
+                }
+                
+                // Display result
+                document.getElementById('resultNumber').textContent = pickedNumber;
+                document.getElementById('transactionInfo').innerHTML = `
+                    <div style="margin-top: 15px; font-size: 0.9em;">
+                        <div><strong>Transaction:</strong> <a href="https://sepolia.basescan.org/tx/${tx.transactionHash}" target="_blank" style="color: #667eea;">View on BaseScan</a></div>
+                        <div><strong>Gas Used:</strong> ${tx.gasUsed}</div>
+                        <div><strong>Block:</strong> ${tx.blockNumber}</div>
+                    </div>
+                `;
+                resultSection.style.display = 'block';
+                
+                // Update wallet balance
+                const newBalance = await web3.eth.getBalance(userAccount);
+                const newBalanceETH = web3.utils.fromWei(newBalance, 'ether');
+                document.getElementById('walletBalance').textContent = parseFloat(newBalanceETH).toFixed(4);
+                
+                // Reload contract stats
+                await loadContractStats();
+                
+            } catch (error) {
+                console.error('Pick number error:', error);
+                let errorMsg = error.message;
+                
+                if (error.message.includes('insufficient funds')) {
+                    errorMsg = 'Insufficient funds for transaction (need ETH for gas + 0.004 ETH for pick cost)';
+                } else if (error.message.includes('User denied')) {
+                    errorMsg = 'Transaction was cancelled by user';
+                } else if (error.message.includes('execution reverted')) {
+                    errorMsg = 'Transaction failed - contract rejected the call';
+                }
+                
+                showError(errorMsg);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Pick Random Number (0.004 ETH)';
+            }
+        }
+        
+        function showError(message) {
+            const errorSection = document.getElementById('errorSection');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            errorMessage.textContent = message;
+            errorSection.style.display = 'block';
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                errorSection.style.display = 'none';
+            }, 10000);
+        }
+        
+        // Listen for account changes
+        if (typeof window.ethereum !== 'undefined') {
+            window.ethereum.on('accountsChanged', function (accounts) {
+                if (accounts.length === 0) {
+                    location.reload();
+                } else if (accounts[0] !== userAccount) {
+                    location.reload();
+                }
+            });
+            
+            window.ethereum.on('chainChanged', function (chainId) {
+                if (parseInt(chainId, 16) !== 84532) {
+                    showError('Please switch back to Base Sepolia network');
+                    document.getElementById('pickBtn').disabled = true;
+                } else {
+                    location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
